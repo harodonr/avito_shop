@@ -19,14 +19,21 @@ jobs:
           go mod download
           go build -o merch_app .
 
+      - name: Upload merch_app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: merch_app_artifact
+          path: merch_app
+
   
   test:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: test
-        uses: actions/checkout@v4
-
+      - name: get merch_app_artifact
+        uses: actions/download-artifact@v4
+        with: 
+            name: merch_app_artifact
 
       - name: test
         run: | 
