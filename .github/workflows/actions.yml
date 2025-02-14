@@ -40,3 +40,10 @@ jobs:
     #     with: 
     #         name: merch_app_artifact
 
+  docker_compose:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker compose
+        run: docker compose up --build
