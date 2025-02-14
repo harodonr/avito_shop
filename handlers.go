@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+	"github.com/golang-jwt/jwt"
 )
 
 // AuthHandler выполняет аутентификацию/регистрацию
