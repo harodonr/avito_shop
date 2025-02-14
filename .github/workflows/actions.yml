@@ -37,4 +37,5 @@ jobs:
 
       - name: test
         run: | 
+          chmod +x ./merch_app
           ./merch_app & go test -v
