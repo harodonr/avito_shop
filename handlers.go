@@ -49,7 +49,13 @@ func AuthHandler(w http.ResponseWriter, r *http.Request) {
 
 // InfoHandler возвращает информацию о монетах, инвентаре и истории транзакций.
 func InfoHandler(w http.ResponseWriter, r *http.Request) {
-	username := r.Context().Value("username").(string)
+	//username := r.Context().Value("username").(string)
+	username, ok := r.Context().Value("username").(string)
+	if !ok || username == "" {
+    		http.Error(w, "Не удалось извлечь имя пользователя", http.StatusUnauthorized)
+		return
+	}
+
 	user, err := GetUserByUsername(username)
 	if err != nil {
 		http.Error(w, "Пользователь не найден", http.StatusNotFound)

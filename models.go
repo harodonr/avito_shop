@@ -88,7 +88,21 @@ func (u *User) BuyMerch(item *Merchandise) error {
     u.Coins -= item.Price
     // Добавить товар в список покупок пользователя
     u.PurchasedMerch = append(u.PurchasedMerch, *item)
-    // Логика для записи покупки в базу данных, если необходимо
+    
+    // Обновляем данные в базе данных
+    _, err := db.Exec(`
+        UPDATE users SET coins = $1 WHERE id = $2
+    `, u.Coins, u.ID)
+    if err != nil {
+        return fmt.Errorf("ошибка при обновлении монет в базе данных: %v", err)
+    }
+
+    _, err = db.Exec(`
+    	INSERT INTO purchases (user_id, merchandise_id) VALUES ($1, $2)
+	`, u.ID, item.ID)
+    if err != nil {
+    	return fmt.Errorf("ошибка при записи покупки в базе данных: %v", err)
+    }
     return nil
 }
 

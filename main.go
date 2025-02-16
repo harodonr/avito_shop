@@ -34,18 +34,21 @@ func main() {
     // Инициализация маршрутов
     r := mux.NewRouter()
 
-    // Пример аутентификации и аутентифицированных маршрутов
+    // Маршрут аутентификации без проверки JWT
     r.HandleFunc("/api/auth", AuthHandler).Methods("POST")
-    r.HandleFunc("/api/info", InfoHandler).Methods("GET")
-    r.HandleFunc("/api/sendCoin", SendCoinHandler).Methods("POST")
-    r.HandleFunc("/api/buy/{item}", BuyMerchHandler).Methods("GET")
+    // Применяем JWTMiddleware ко всем маршрутам, которые требуют авторизации
+    api := r.PathPrefix("/api").Subrouter()
+    api.Use(JWTMiddleware)
+    api.HandleFunc("/info", InfoHandler).Methods("GET")
+    api.HandleFunc("/sendCoin", SendCoinHandler).Methods("POST")
+    api.HandleFunc("/buy/{item}", BuyMerchHandler).Methods("GET")
 
     // Настроим маршруты для защищённых функций
-    api := r.PathPrefix("/me").Subrouter()
-    api.Use(JWTMiddleware)
-    api.HandleFunc("/merch", GetUserMerchHandler).Methods("GET")
-    api.HandleFunc("/transfer", TransferHandler).Methods("POST")
-    api.HandleFunc("/transactions", GetTransactionsHandler).Methods("GET")
+    apiMe := r.PathPrefix("/me").Subrouter()
+    apiMe.Use(JWTMiddleware)
+    apiMe.HandleFunc("/merch", GetUserMerchHandler).Methods("GET")
+    apiMe.HandleFunc("/transfer", TransferHandler).Methods("POST")
+    apiMe.HandleFunc("/transactions", GetTransactionsHandler).Methods("GET")
 
     log.Println("Запуск сервера на порту 8080")
     if err := http.ListenAndServe(":8080", r); err != nil {

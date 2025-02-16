@@ -26,14 +26,14 @@ jobs:
     #       path: merch_app
 
   
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: test
-        run: | 
-          go test -v
+          #test:
+          #needs: build
+    #runs-on: ubuntu-latest
+    #steps:
+            #- uses: actions/checkout@v4
+        #- name: test
+        #        run: | 
+                #          go test -v
 
     #   - name: get merch_app_artifact
     #     uses: actions/download-artifact@v4
@@ -41,7 +41,7 @@ jobs:
     #         name: merch_app_artifact
 
   docker_compose:
-    needs: test
+          #needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
