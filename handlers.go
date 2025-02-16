@@ -90,7 +90,7 @@ func InfoHandler(w http.ResponseWriter, r *http.Request) {
 		inventory = append(inventory, item)
 	}
 
-	// Получаем историю монет
+	// Получаем полученные переводы 
 	rows, err = db.Query(`
 		SELECT u.username, t.amount 
 		FROM transactions t
@@ -103,7 +103,7 @@ func InfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for rows.Next() {
-		var transfer TransferInfo
+		var transfer ReceivedTransferInfo
 		if err := rows.Scan(&transfer.FromUser, &transfer.Amount); err != nil {
 			http.Error(w, "Ошибка при сканировании истории монет", http.StatusInternalServerError)
 			return
@@ -124,7 +124,7 @@ func InfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for rows.Next() {
-		var transfer TransferInfo
+		var transfer SentTransferInfo
 		if err := rows.Scan(&transfer.ToUser, &transfer.Amount); err != nil {
 			http.Error(w, "Ошибка при сканировании истории монет", http.StatusInternalServerError)
 			return

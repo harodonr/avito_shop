@@ -43,7 +43,6 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount INTEGER NOT NULL,
     transaction_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     -- Добавление уникального ограничения на комбинацию sender_id и receiver_id
-    CONSTRAINT unique_transaction UNIQUE (sender_id, receiver_id)
 );
 
 -- Пример вставки данных в таблицу пользователей

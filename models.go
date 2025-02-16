@@ -32,15 +32,27 @@ type SendCoinRequest struct {
 
 // CoinHistory - структура для истории монет
 type CoinHistory struct {
-	Received []TransferInfo `json:"received"` // Переводы монет, полученных пользователем
-	Sent     []TransferInfo `json:"sent"`     // Переводы монет, отправленных пользователем
+    Received []ReceivedTransferInfo `json:"received"` // Переводы монет, полученных пользователем
+    Sent     []SentTransferInfo     `json:"sent"`     // Переводы монет, отправленных пользователем
+}
+
+// ReceivedTransferInfo - структура для информации о полученных монетах
+type ReceivedTransferInfo struct {
+    FromUser string `json:"fromUser"` // Имя пользователя, который отправил монеты
+    Amount   int    `json:"amount"`   // Количество полученных монет
+}
+
+// SentTransferInfo - структура для информации о отправленных монетах
+type SentTransferInfo struct {
+    ToUser string `json:"toUser"`   // Имя пользователя, которому отправлены монеты
+    Amount int    `json:"amount"`   // Количество отправленных монет
 }
 
 // TransferInfo - структура для информации о переводе монет
 type TransferInfo struct {
-	FromUser string `json:"fromUser"` // Имя пользователя, который отправил монеты
-	ToUser   string `json:"toUser"`   // Имя пользователя, которому отправлены монеты
-	Amount   int    `json:"amount"`   // Количество переведенных монет
+        FromUser string `json:"fromUser"` // Имя пользователя, который отправил монеты
+        ToUser   string `json:"toUser"`   // Имя пользователя, которому отправлены монеты
+        Amount   int    `json:"amount"`   // Количество переведенных монет
 }
 
 // InfoResponse - структура для ответа на запрос информации о монетах и инвентаре
@@ -75,8 +87,30 @@ func (u *User) TransferCoins(recipient *User, coins int) error {
     }
     u.Coins -= coins
     recipient.Coins += coins
-    // Запись в историю переводов, если необходимо
-    // Можно добавлять логику для записи транзакции в базу данных
+    // Обновляем данные пользователей в базе данных
+    _, err := db.Exec(`
+        UPDATE users SET coins = $1 WHERE id = $2
+    `, u.Coins, u.ID)
+    if err != nil {
+        return fmt.Errorf("ошибка при обновлении монет отправителя в базе данных: %v", err)
+    }    
+
+    _, err = db.Exec(`
+        UPDATE users SET coins = $1 WHERE id = $2
+    `, recipient.Coins, recipient.ID)
+    if err != nil {
+        return fmt.Errorf("ошибка при обновлении монет получателя в базе данных: %v", err)
+    }
+
+    // Добавляем запись о транзакции в историю
+    _, err = db.Exec(`
+        INSERT INTO transactions (sender_id, receiver_id, amount) 
+        VALUES ($1, $2, $3)
+    `, u.ID, recipient.ID, coins)
+    if err != nil {
+        return fmt.Errorf("ошибка при записи транзакции в базу данных: %v", err)
+    }
+
     return nil
 }
 
