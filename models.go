@@ -1,110 +1,130 @@
 package main
 
 import (
-	"errors"
-	"sync"
+	"database/sql"
+	"fmt"
+	//"log"
 )
 
-// Определение структуры товара (мерча)
-type Merch struct {
-	Name  string `json:"name"`
-	Price int    `json:"price"`
+// AuthRequest - структура запроса для аутентификации
+type AuthRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
-// Каталог мерча (10 видов товаров)
-var MerchCatalog = map[string]Merch{
-	"t-shirt":    {"t-shirt", 80},
-	"cup":        {"cup", 20},
-	"book":       {"book", 50},
-	"pen":        {"pen", 10},
-	"powerbank":  {"powerbank", 200},
-	"hoody":      {"hoody", 300},
-	"umbrella":   {"umbrella", 200},
-	"socks":      {"socks", 10},
-	"wallet":     {"wallet", 50},
-	"pink-hoody": {"pink-hoody", 500},
+// AuthResponse - структура ответа на аутентификацию
+type AuthResponse struct {
+	Token string `json:"token"`
 }
 
-// User представляет сотрудника
-type User struct {
-	Username          string         `json:"username"`
-	Coins             int            `json:"coins"`
-	PurchasedMerch    []Merch        `json:"purchased_merch"`
-	IncomingTransfers []TransferInfo `json:"incoming_transfers"`
-	OutgoingTransfers []TransferInfo `json:"outgoing_transfers"`
-	mu                sync.Mutex
+// InventoryItem - структура для элемента инвентаря
+type InventoryItem struct {
+	Type     string `json:"type"`     // Тип предмета (например, "t-shirt")
+	Quantity int    `json:"quantity"` // Количество предметов
 }
 
-// TransferInfo хранит информацию о переводе монет
+// SendCoinRequest - структура для запроса перевода монет
+type SendCoinRequest struct {
+    ToUser string `json:"toUser"` // Имя получателя монет
+    Amount int    `json:"amount"` // Количество монет
+}
+
+
+// CoinHistory - структура для истории монет
+type CoinHistory struct {
+	Received []TransferInfo `json:"received"` // Переводы монет, полученных пользователем
+	Sent     []TransferInfo `json:"sent"`     // Переводы монет, отправленных пользователем
+}
+
+// TransferInfo - структура для информации о переводе монет
 type TransferInfo struct {
-	From  string `json:"from,omitempty"`
-	To    string `json:"to,omitempty"`
-	Coins int    `json:"coins"`
+	FromUser string `json:"fromUser"` // Имя пользователя, который отправил монеты
+	ToUser   string `json:"toUser"`   // Имя пользователя, которому отправлены монеты
+	Amount   int    `json:"amount"`   // Количество переведенных монет
 }
 
-var (
-	users   = make(map[string]*User)
-	usersMu sync.RWMutex
-)
-
-// Инициализировать хранилище
-func InitStore() {
-	// При старте можно инициализировать нескольких сотрудников
+// InfoResponse - структура для ответа на запрос информации о монетах и инвентаре
+type InfoResponse struct {
+	Coins      int            `json:"coins"`      // Количество монет у пользователя
+	Inventory  []InventoryItem `json:"inventory"`  // Инвентарь пользователя
+	CoinHistory CoinHistory   `json:"coinHistory"` // История монет
 }
 
-// GetOrCreateUser возвращает пользователя, создавая его, если не существует
-func GetOrCreateUser(username string) *User {
-	usersMu.Lock()
-	defer usersMu.Unlock()
-	if user, ok := users[username]; ok {
-		return user
-	}
-	// Каждый новый сотрудник получает 1000 монет
-	user := &User{
-		Username:       username,
-		Coins:          1000,
-		PurchasedMerch: []Merch{},
-	}
-	users[username] = user
-	return user
+// Merchandise - структура для товара
+type Merchandise struct {
+	ID    int    `json:"id"`    // Уникальный идентификатор товара
+	Name  string `json:"name"`  // Название товара
+	Price int    `json:"price"` // Цена товара в монетах
 }
 
-// GetUser возвращает пользователя, если существует
-func GetUser(username string) *User {
-	usersMu.RLock()
-	defer usersMu.RUnlock()
-	return users[username]
+// User - структура для пользователя
+type User struct {
+	ID                int    `json:"id"`                // Уникальный идентификатор пользователя
+	Username          string `json:"username"`          // Имя пользователя
+	PasswordHash      string `json:"-"`                 // Хэш пароля (не возвращаем в ответах)
+	Coins             int    `json:"coins"`             // Количество монет у пользователя
+	PurchasedMerch    []Merchandise // Список купленных товаров
+	IncomingTransfers []TransferInfo // Список входящих переводов
+	OutgoingTransfers []TransferInfo // Список исходящих переводов
 }
 
-// BuyMerch покупает мерч, списывая монетки и добавляя товар в список покупок
-func (u *User) BuyMerch(item Merch) error {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	if u.Coins < item.Price {
-		return errors.New("недостаточно монет")
-	}
-	u.Coins -= item.Price
-	u.PurchasedMerch = append(u.PurchasedMerch, item)
-	return nil
-}
-
-// TransferCoins переводит монетки от пользователя к получателю
+// TransferCoins - метод для перевода монет от одного пользователя другому
 func (u *User) TransferCoins(recipient *User, coins int) error {
-	// Блокировка sender и recipient для безопасного обновления
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	if u.Coins < coins {
-		return errors.New("недостаточно монет для перевода")
-	}
-	u.Coins -= coins
-	// Обновляем исходящие переводы у отправителя
-	u.OutgoingTransfers = append(u.OutgoingTransfers, TransferInfo{To: recipient.Username, Coins: coins})
-
-	// Обновляем получателя
-	recipient.mu.Lock()
-	defer recipient.mu.Unlock()
-	recipient.Coins += coins
-	recipient.IncomingTransfers = append(recipient.IncomingTransfers, TransferInfo{From: u.Username, Coins: coins})
-	return nil
+    if u.Coins < coins {
+        return fmt.Errorf("недостаточно монет для перевода")
+    }
+    u.Coins -= coins
+    recipient.Coins += coins
+    // Запись в историю переводов, если необходимо
+    // Можно добавлять логику для записи транзакции в базу данных
+    return nil
 }
+
+// BuyMerch - метод для покупки товара пользователем
+func (u *User) BuyMerch(item *Merchandise) error {
+    if u.Coins < item.Price {
+        return fmt.Errorf("недостаточно монет для покупки")
+    }
+    u.Coins -= item.Price
+    // Добавить товар в список покупок пользователя
+    u.PurchasedMerch = append(u.PurchasedMerch, *item)
+    // Логика для записи покупки в базу данных, если необходимо
+    return nil
+}
+
+
+func GetUserByUsername(username string) (*User, error) {
+	var user User
+	err := db.QueryRow("SELECT id, username, coins FROM users WHERE username = $1", username).Scan(&user.ID, &user.Username, &user.Coins)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("пользователь не найден")
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+func CreateUser(username, password string) (*User, error) {
+	// Генерация хеша пароля должна быть сделана безопасно
+	// Для примера, не будем добавлять хеширование
+	_, err := db.Exec("INSERT INTO users (username, password_hash, coins) VALUES ($1, $2, $3)", username, password, 1000)
+	if err != nil {
+		return nil, err
+	}
+	return GetUserByUsername(username)
+}
+
+func GetMerchandiseByName(name string) (*Merchandise, error) {
+	var item Merchandise
+	err := db.QueryRow("SELECT id, name, price FROM merchandise WHERE name = $1", name).Scan(&item.ID, &item.Name, &item.Price)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("товар не найден")
+		}
+		return nil, err
+	}
+	return &item, nil
+}
+
 
