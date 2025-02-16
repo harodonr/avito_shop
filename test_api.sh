@@ -28,7 +28,7 @@ echo ""
 
 # 3. Покупка товара
 echo "5. Покупка товара..."
-BUY_RESPONSE=$(curl -s -X GET $BASE_URL/api/buy/t-shirt -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json")
+BUY_RESPONSE=$(curl -s -X GET $BASE_URL/api/buy/pen -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json")
 echo $BUY_RESPONSE
 echo ""
 

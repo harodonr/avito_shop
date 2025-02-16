@@ -29,9 +29,17 @@ ON CONFLICT (name) DO NOTHING; -- Не вставлять дубли, если �
 
 -- Создание таблицы покупок (связь пользователя и товаров)
 CREATE TABLE IF NOT EXISTS purchases (
+    id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     merchandise_id INTEGER REFERENCES merchandise(id) ON DELETE CASCADE,
-    purchase_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    purchase_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Создание таблицы инвентаря с количеством
+CREATE TABLE IF NOT EXISTS user_inventory (
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    merchandise_id INT REFERENCES merchandise(id) ON DELETE CASCADE,
+    quantity INT DEFAULT 0,
     PRIMARY KEY (user_id, merchandise_id)
 );
 
@@ -41,7 +49,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     receiver_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     amount INTEGER NOT NULL,
-    transaction_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    transaction_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     -- Добавление уникального ограничения на комбинацию sender_id и receiver_id
 );
 
@@ -55,8 +63,7 @@ ON CONFLICT (username) DO NOTHING; -- Не вставлять дубли
 -- Пример записи транзакции (перевод монет между пользователями)
 INSERT INTO transactions (sender_id, receiver_id, amount) VALUES
     (1, 2, 50),
-    (2, 3, 100)
-ON CONFLICT (sender_id, receiver_id) DO NOTHING; -- Не вставлять дубли
+    (2, 3, 100); -- Не вставлять дубли
 
 -- Пример покупки товара
 INSERT INTO purchases (user_id, merchandise_id) VALUES

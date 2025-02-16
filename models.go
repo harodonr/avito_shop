@@ -119,24 +119,53 @@ func (u *User) BuyMerch(item *Merchandise) error {
     if u.Coins < item.Price {
         return fmt.Errorf("недостаточно монет для покупки")
     }
-    u.Coins -= item.Price
-    // Добавить товар в список покупок пользователя
-    u.PurchasedMerch = append(u.PurchasedMerch, *item)
-    
-    // Обновляем данные в базе данных
-    _, err := db.Exec(`
+
+    // Начинаем транзакцию
+    tx, err := db.Begin()
+    if err != nil {
+        return fmt.Errorf("ошибка при начале транзакции: %v", err)
+    }
+
+    // Откатываем транзакцию в случае ошибки
+    defer tx.Rollback()
+
+    // Сначала обновляем количество монет пользователя в базе данных
+    _, err = tx.Exec(`
         UPDATE users SET coins = $1 WHERE id = $2
-    `, u.Coins, u.ID)
+    `, u.Coins-item.Price, u.ID)
     if err != nil {
         return fmt.Errorf("ошибка при обновлении монет в базе данных: %v", err)
     }
 
-    _, err = db.Exec(`
-    	INSERT INTO purchases (user_id, merchandise_id) VALUES ($1, $2)
-	`, u.ID, item.ID)
+    // Добавляем товар в список покупок пользователя
+    _, err = tx.Exec(`
+        INSERT INTO purchases (user_id, merchandise_id) VALUES ($1, $2)
+    `, u.ID, item.ID)
     if err != nil {
-    	return fmt.Errorf("ошибка при записи покупки в базе данных: %v", err)
+        return fmt.Errorf("ошибка при записи покупки в базе данных: %v", err)
     }
+
+    // Обновляем количество товара в инвентаре пользователя (если он уже есть)
+    _, err = tx.Exec(`
+        INSERT INTO user_inventory (user_id, merchandise_id, quantity)
+        VALUES ($1, $2, 1)
+        ON CONFLICT (user_id, merchandise_id)
+        DO UPDATE SET quantity = user_inventory.quantity + 1
+    `, u.ID, item.ID)
+    if err != nil {
+        return fmt.Errorf("ошибка при обновлении количества товара в инвентаре: %v", err)
+    }
+
+    // Если все прошло успешно, коммитим транзакцию
+    err = tx.Commit()
+    if err != nil {
+        return fmt.Errorf("ошибка при коммите транзакции: %v", err)
+    }
+
+    // Обновляем информацию в памяти (если нужно)
+    u.Coins -= item.Price
+    u.PurchasedMerch = append(u.PurchasedMerch, *item)
+
     return nil
 }
 
